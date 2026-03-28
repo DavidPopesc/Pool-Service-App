@@ -1,0 +1,1 @@
+//This function will check user credentials and see if they can access a requested form before fetching the form
