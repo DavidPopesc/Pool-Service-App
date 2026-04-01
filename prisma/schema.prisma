@@ -1,0 +1,322 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  OPERATIONS_MANAGER
+  TECHNICIAN
+}
+
+enum PoolStatus {
+  ACTIVE
+  MAINTENANCE
+  INACTIVE
+}
+
+enum JobStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  MISSED
+  CANCELLED
+}
+
+enum WaterLevelStatus {
+  LOW
+  NORMAL
+  HIGH
+}
+
+enum AlertType {
+  PH_HIGH
+  PH_LOW
+  CHLORINE_HIGH
+  CHLORINE_LOW
+}
+
+enum MessageStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+model Organization {
+  id                String             @id @default(cuid())
+  name              String
+  createdAt         DateTime           @default(now())
+  users             User[]
+  customers         Customer[]
+  pools             Pool[]
+  jobs              Job[]
+  checklistTemplates ChecklistTemplate[]
+  serviceLogs       ServiceLog[]
+  chemicalLogs      ChemicalLog[]
+  incidentLogs      IncidentLog[]
+  alerts            Alert[]
+  customerMessages  CustomerMessage[]
+  reports           Report[]
+  equipmentExpenses EquipmentExpense[]
+}
+
+model User {
+  id              String           @id @default(cuid())
+  organizationId  String
+  name            String
+  email           String           @unique
+  passwordHash    String
+  role            Role
+  phone           String?
+  active          Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sessions        Session[]
+  assignedJobs    Job[]            @relation("AssignedJobs")
+  createdJobs     Job[]            @relation("CreatedJobs")
+  serviceLogs     ServiceLog[]
+  chemicalLogs    ChemicalLog[]
+  incidentLogs    IncidentLog[]
+  customerMessages CustomerMessage[]
+
+  @@index([organizationId, role])
+}
+
+model Session {
+  id         String   @id @default(cuid())
+  userId      String
+  token       String   @unique
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Customer {
+  id             String            @id @default(cuid())
+  organizationId String
+  name           String
+  email          String?
+  phone          String?
+  address        String
+  notes          String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  pools          Pool[]
+  messages       CustomerMessage[]
+
+  @@index([organizationId, name])
+}
+
+model Pool {
+  id                 String            @id @default(cuid())
+  organizationId     String
+  customerId         String
+  name               String
+  poolType           String
+  dimensions         String
+  estimatedVolume    Int
+  careInstructions   String
+  targetPhMin        Float
+  targetPhMax        Float
+  targetChlorineMin  Float?
+  targetChlorineMax  Float?
+  notes              String?
+  status             PoolStatus        @default(ACTIVE)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  organization       Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer           Customer          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  jobs               Job[]
+  serviceLogs        ServiceLog[]
+  chemicalLogs       ChemicalLog[]
+  incidentLogs       IncidentLog[]
+  alerts             Alert[]
+
+  @@index([organizationId, customerId])
+}
+
+model Job {
+  id                 String             @id @default(cuid())
+  organizationId     String
+  poolId             String
+  technicianId       String?
+  createdById        String
+  title              String
+  scheduledStart     DateTime
+  scheduledEnd       DateTime
+  routeOrder         Int?
+  notes              String?
+  status             JobStatus          @default(SCHEDULED)
+  completedAt        DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  organization       Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  pool               Pool               @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  technician         User?              @relation("AssignedJobs", fields: [technicianId], references: [id])
+  createdBy          User               @relation("CreatedJobs", fields: [createdById], references: [id])
+  checklistItems     JobChecklistItem[]
+  serviceLog         ServiceLog?
+  chemicalLogs       ChemicalLog[]
+  incidentLogs       IncidentLog[]
+  customerMessages   CustomerMessage[]
+
+  @@index([organizationId, scheduledStart])
+  @@index([technicianId, scheduledStart])
+}
+
+model ChecklistTemplate {
+  id             String                  @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+  organization   Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  items          ChecklistTemplateItem[]
+}
+
+model ChecklistTemplateItem {
+  id          String             @id @default(cuid())
+  templateId  String
+  label       String
+  sortOrder   Int
+  required    Boolean            @default(true)
+  template    ChecklistTemplate  @relation(fields: [templateId], references: [id], onDelete: Cascade)
+}
+
+model JobChecklistItem {
+  id               String    @id @default(cuid())
+  jobId            String
+  templateItemId   String?
+  label            String
+  sortOrder        Int
+  required         Boolean   @default(true)
+  completed        Boolean   @default(false)
+  completedAt      DateTime?
+  completedById    String?
+  notes            String?
+  job              Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId, sortOrder])
+}
+
+model ServiceLog {
+  id               String            @id @default(cuid())
+  organizationId   String
+  jobId            String            @unique
+  poolId           String
+  technicianId     String
+  summary          String
+  observations     String
+  waterLevelStatus WaterLevelStatus
+  submittedAt      DateTime          @default(now())
+  organization     Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  job              Job               @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  pool             Pool              @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  technician       User              @relation(fields: [technicianId], references: [id])
+}
+
+model ChemicalLog {
+  id               String        @id @default(cuid())
+  organizationId   String
+  poolId           String
+  jobId            String?
+  technicianId     String
+  chemicalType     String
+  dosageAmount     Float
+  dosageUnit       String
+  costPerUnit      Float
+  phReading        Float?
+  chlorineReading  Float?
+  alkalinityReading Float?
+  notes            String?
+  loggedAt         DateTime      @default(now())
+  organization     Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  pool             Pool          @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  job              Job?          @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  technician       User          @relation(fields: [technicianId], references: [id])
+  alerts           Alert[]
+
+  @@index([organizationId, poolId, loggedAt])
+}
+
+model IncidentLog {
+  id              String        @id @default(cuid())
+  organizationId  String
+  poolId          String
+  jobId           String?
+  technicianId    String
+  title           String
+  details         String
+  severity        String
+  createdAt       DateTime      @default(now())
+  organization    Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  pool            Pool          @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  job             Job?          @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  technician      User          @relation(fields: [technicianId], references: [id])
+
+  @@index([organizationId, createdAt])
+}
+
+model Alert {
+  id             String        @id @default(cuid())
+  organizationId String
+  poolId         String
+  chemicalLogId  String?
+  type           AlertType
+  message        String
+  resolved       Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  pool           Pool          @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  chemicalLog    ChemicalLog?  @relation(fields: [chemicalLogId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, resolved, createdAt])
+}
+
+model CustomerMessage {
+  id               String         @id @default(cuid())
+  organizationId   String
+  customerId       String
+  jobId            String?
+  createdById      String
+  subject          String
+  body             String
+  status           MessageStatus  @default(PENDING)
+  sentAt           DateTime?
+  createdAt        DateTime       @default(now())
+  organization     Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer         Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  job              Job?           @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  createdBy        User           @relation(fields: [createdById], references: [id])
+}
+
+model EquipmentExpense {
+  id             String        @id @default(cuid())
+  organizationId String
+  poolId         String?
+  category       String
+  description    String
+  amount         Float
+  incurredAt     DateTime
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, incurredAt])
+}
+
+model Report {
+  id             String        @id @default(cuid())
+  organizationId String
+  createdById    String?
+  name           String
+  type           String
+  filtersJson    String
+  createdAt      DateTime      @default(now())
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
