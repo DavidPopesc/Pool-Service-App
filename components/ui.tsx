@@ -32,7 +32,7 @@ export function Card({
   return (
     <div
       className={cn(
-        "surface-glass pool-grid rounded-[1.75rem] border p-5 shadow-[0_20px_45px_rgba(15,27,53,0.08)]",
+        "surface-glass pool-grid rounded-[1.35rem] border p-5 shadow-[0_16px_36px_rgba(15,27,53,0.06)]",
         className,
       )}
       style={{ borderColor: "var(--card-border)" }}
@@ -60,14 +60,14 @@ export function Button({
   type?: "button" | "submit";
 }) {
   const styles = {
-    primary: "bg-[linear-gradient(135deg,#ff972f,#ff7f32)] text-slate-950 hover:brightness-105",
-    secondary: "bg-[linear-gradient(135deg,#0f123f,#14347f)] text-white hover:brightness-110",
+    primary: "bg-[linear-gradient(135deg,#f38d2c,#ea7e22)] text-slate-950 hover:brightness-105",
+    secondary: "bg-[linear-gradient(135deg,#17234f,#21448a)] text-white hover:brightness-105",
     ghost: "bg-white/70 text-slate-700 hover:bg-white",
     danger: "bg-rose-600 text-white hover:bg-rose-700",
   };
 
   const classes = cn(
-    "inline-flex items-center justify-center rounded-2xl px-4 py-2.5 text-sm font-semibold shadow-[0_12px_30px_rgba(15,27,53,0.08)]",
+    "inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold shadow-[0_10px_24px_rgba(15,27,53,0.07)]",
     styles[variant],
     className,
   );
